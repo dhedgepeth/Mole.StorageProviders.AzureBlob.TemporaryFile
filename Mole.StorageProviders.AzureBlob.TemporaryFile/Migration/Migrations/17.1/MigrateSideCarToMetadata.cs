@@ -63,7 +63,7 @@ public class MigrateSideCarToMetadata : AsyncPackageMigrationBase
     {
         BlobContainerClient container = await GetContainerAsync();
 
-        await foreach (BlobItem blob in container.GetBlobsAsync())
+        await foreach (BlobItem blob in container.GetBlobsAsync(prefix: _settings.GetBlobPrefix()))
         {
             if (blob.Name.EndsWith(MetadataExtension) is false)
             {
@@ -123,7 +123,14 @@ public class MigrateSideCarToMetadata : AsyncPackageMigrationBase
     {
         BlobServiceClient serviceClient = _clientFactory.GetBlobServiceClient();
         BlobContainerClient container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
-        await container.CreateIfNotExistsAsync();
+
+        // See TemporaryFileSettings.CreateContainerIfNotExists: container scoped credentials cannot
+        // create a container, so those setups rely on it already being there.
+        if (_settings.CreateContainerIfNotExists)
+        {
+            await container.CreateIfNotExistsAsync();
+        }
+
         return container;
     }
 

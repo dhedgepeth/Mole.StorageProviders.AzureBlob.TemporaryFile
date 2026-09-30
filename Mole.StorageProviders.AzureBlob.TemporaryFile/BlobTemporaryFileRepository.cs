@@ -50,6 +50,8 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
     {
     }
 
+    private string GetBlobName(Guid key) => _settings.GetBlobPrefix() + key;
+
     private async Task<BlobContainerClient> GetContainerAsync()
     {
         if (_containerClient is not null)
@@ -59,7 +61,13 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
 
         BlobServiceClient serviceClient = _clientFactory.GetBlobServiceClient();
         BlobContainerClient container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
-        await container.CreateIfNotExistsAsync();
+
+        // Creating a container is an account level operation, which credentials scoped to a single
+        // container cannot perform. Those setups point at a container that already exists instead.
+        if (_settings.CreateContainerIfNotExists)
+        {
+            await container.CreateIfNotExistsAsync();
+        }
 
         _containerClient = container;
         return container;
@@ -68,7 +76,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
     public async Task<TemporaryFileModel?> GetAsync(Guid key)
     {
         BlobContainerClient container = await GetContainerAsync();
-        BlobClient blobClient = container.GetBlobClient(key.ToString());
+        BlobClient blobClient = container.GetBlobClient(GetBlobName(key));
 
         Response<BlobDownloadInfo> fileResponse;
         try
@@ -107,7 +115,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
     public async Task SaveAsync(TemporaryFileModel model)
     {
         BlobContainerClient container = await GetContainerAsync();
-        BlobClient blobClient = container.GetBlobClient(model.Key.ToString());
+        BlobClient blobClient = container.GetBlobClient(GetBlobName(model.Key));
 
         var options = new BlobUploadOptions
         {
@@ -126,7 +134,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
     public async Task DeleteAsync(Guid key)
     {
         BlobContainerClient container = await GetContainerAsync();
-        await container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots);
+        await container.DeleteBlobIfExistsAsync(GetBlobName(key), DeleteSnapshotsOption.IncludeSnapshots);
     }
 
     public async Task<IEnumerable<Guid>> CleanUpOldTempFiles(DateTime now)
@@ -134,7 +142,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         BlobContainerClient container = await GetContainerAsync();
         List<Guid> keysToDelete = [];
 
-        await foreach (BlobItem blob in container.GetBlobsAsync(BlobTraits.Metadata))
+        await foreach (BlobItem blob in container.GetBlobsAsync(BlobTraits.Metadata, prefix: _settings.GetBlobPrefix()))
         {
             MetaDataFile metadata;
             try
@@ -161,7 +169,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         List<Task> deleteTasks = [];
         foreach (Guid key in keysToDelete)
         {
-            deleteTasks.Add(container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots));
+            deleteTasks.Add(container.DeleteBlobIfExistsAsync(GetBlobName(key), DeleteSnapshotsOption.IncludeSnapshots));
         }
 
         await Task.WhenAll(deleteTasks);

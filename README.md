@@ -41,6 +41,49 @@ Add your Azure Blob Storage connection string to `appsettings.json`:
 
 The `ContainerName` is optional and defaults to `tempfiles`
 
+### Settings
+
+| Setting | Required | Default | Description |
+| --- | --- | --- | --- |
+| `ConnectionString` | yes | | Azure Storage connection string. Either account credentials or a `BlobEndpoint=...;SharedAccessSignature=...` pair. |
+| `ContainerName` | no | `tempfiles` | The blob container temporary files are stored in. |
+| `ContainerRootPath` | no | *(none)* | A virtual folder inside the container to store temporary files under. Blob listing is scoped to it, so cleanup only ever sees its own files. |
+| `CreateContainerIfNotExists` | no | `true` | Whether to create the container at startup when it is missing. |
+
+### Using a container scoped shared access signature
+
+Creating a container is an account level operation, so a shared access signature scoped to a single
+container cannot do it. Some hosts only ever hand out container scoped credentials, Umbraco Cloud
+among them, where the signature covers the media container and nothing else.
+
+To run against credentials like those, point the package at the container the signature already
+covers, give it a root path of its own inside that container, and turn container creation off:
+
+```json
+{
+  "Umbraco": {
+    "Storage": {
+      "AzureBlob": {
+        "TemporaryFile": {
+          "ConnectionString": "BlobEndpoint=https://your-account.blob.core.windows.net/;SharedAccessSignature=sv=...",
+          "ContainerName": "the-container-the-signature-covers",
+          "ContainerRootPath": "temporary-files",
+          "CreateContainerIfNotExists": false
+        }
+      }
+    }
+  }
+}
+```
+
+The signature needs read, write, delete and list permissions. List is what the cleanup job uses to
+find expired files; without it, temporary files are never removed.
+
+Sharing a container this way means temporary files sit alongside whatever else is in it, under the
+root path. `ContainerRootPath` keeps the two apart and keeps the cleanup job from enumerating
+anything that is not its own, but it is a shared container, so anything else that walks the
+container root will see the folder.
+
 **Security Note:** For production environments, use Azure Key Vault, Managed Identity, or environment variables instead of storing connection strings in configuration files.
 
 ## Versioning
