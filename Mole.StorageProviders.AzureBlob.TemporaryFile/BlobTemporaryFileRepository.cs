@@ -59,8 +59,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
             return _containerClient;
         }
 
-        BlobServiceClient serviceClient = _clientFactory.GetBlobServiceClient();
-        BlobContainerClient container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
+        BlobContainerClient container = _clientFactory.GetBlobContainerClient(_settings.ContainerName);
 
         // Creating a container is an account level operation, which credentials scoped to a single
         // container cannot perform. Those setups point at a container that already exists instead.

@@ -18,4 +18,12 @@ public class TemporaryBlobClientFactory : ITemporaryBlobClientFactory
         var connectionString = _temporaryFileSettings.ConnectionString;
         return new BlobServiceClient(connectionString);
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Built straight from the connection string rather than from the service client, so the
+    /// container name replaces the endpoint's path instead of being appended to it.
+    /// </remarks>
+    public BlobContainerClient GetBlobContainerClient(string containerName) =>
+        new(_temporaryFileSettings.ConnectionString, containerName);
 }

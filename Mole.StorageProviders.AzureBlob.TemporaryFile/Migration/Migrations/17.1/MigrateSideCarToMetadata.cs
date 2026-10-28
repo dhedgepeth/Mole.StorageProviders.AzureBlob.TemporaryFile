@@ -121,8 +121,7 @@ public class MigrateSideCarToMetadata : AsyncPackageMigrationBase
 
     private async Task<BlobContainerClient> GetContainerAsync()
     {
-        BlobServiceClient serviceClient = _clientFactory.GetBlobServiceClient();
-        BlobContainerClient container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
+        BlobContainerClient container = _clientFactory.GetBlobContainerClient(_settings.ContainerName);
 
         // See TemporaryFileSettings.CreateContainerIfNotExists: container scoped credentials cannot
         // create a container, so those setups rely on it already being there.
